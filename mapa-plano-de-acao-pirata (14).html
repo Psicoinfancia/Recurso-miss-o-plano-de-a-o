@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Construindo o Mapa da Minha Terapia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --parchment:#F7EBCB;
+    --parchment-soft:#FCF6E6;
+    --parchment-edge:#D9BE81;
+    --ink:#3B2A1A;
+    --ink-soft:#5B4530;
+    --sea-deep:#0E4A60;
+    --sea-mid:#1C7293;
+    --gold:#D9A441;
+    --gold-light:#F0CD7C;
+    --coral:#C1502E;
+    --coral-dark:#9B3A22;
+    --shadow:rgba(20,15,10,0.28);
+  }
+  *{box-sizing:border-box;}
+  html{ scroll-behavior:smooth; }
+  body{
+    margin:0;
+    font-family:'Nunito', sans-serif;
+    color:var(--ink);
+    background: linear-gradient(180deg, var(--sea-deep) 0%, var(--sea-mid) 200px, var(--parchment) 380px, var(--parchment) 100%);
+    min-height:100vh;
+    position:relative;
+  }
+  .bg-scene{
+    position:fixed;
+    inset:0;
+    background-image:url('https://livia-430118842660-us-east-1-an.s3.us-east-1.amazonaws.com/oceano.jpg');
+    background-size:cover;
+    background-position:center;
+    opacity:0.6;
+    z-index:0;
+    pointer-events:none;
+  }
+  .wrap{
+    position:relative;
+    z-index:1;
+    max-width:900px;
+    margin:0 auto;
+    padding: 26px 16px 90px;
+  }
+
+  header{ text-align:center; padding-top:4px; }
+  header img.logo{
+    max-width:140px; height:auto;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.35));
+    margin-bottom:6px;
+  }
+  h1{
+    font-family:'Fredoka', sans-serif;
+    font-weight:700;
+    font-size:clamp(1.6rem, 5vw, 2.4rem);
+    color:#FCE9BB;
+    text-shadow: 0 3px 0 var(--coral-dark), 0 6px 10px rgba(0,0,0,0.35);
+    margin:4px 0 2px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  h1 img.title-icon{
+    width:40px; height:auto;
+    filter: drop-shadow(0 3px 6px rgba(0,0,0,0.4));
+  }
+  .subtitle{
+    color:#EAF6FA; font-weight:700; font-size:1.05rem;
+    margin-bottom:20px;
+    text-shadow:0 2px 4px rgba(0,0,0,0.3);
+  }
+
+  .intro{
+    display:flex; align-items:center; gap:18px;
+    background:var(--parchment-soft);
+    border:3px dashed var(--gold);
+    border-radius:20px;
+    padding:16px 20px;
+    max-width:660px;
+    margin:0 auto 20px;
+    box-shadow:0 6px 16px var(--shadow);
+  }
+  .intro img.pirata{ width:100px; height:auto; flex-shrink:0; filter: drop-shadow(0 6px 8px rgba(0,0,0,0.3)); }
+  .intro p{ margin:0; line-height:1.5; font-size:1.02rem; font-weight:600; }
+  @media (max-width:520px){ .intro{ flex-direction:column; text-align:center; } }
+
+  section.map{ position:relative; padding:30px 0 10px; }
+  .map::before{
+    content:"";
+    position:absolute;
+    top:0; bottom:0; left:50%;
+    width:6px;
+    transform:translateX(-50%);
+    background: repeating-linear-gradient(180deg, var(--wood, #6B4226) 0 10px, var(--gold-light) 10px 16px);
+    border-radius:6px;
+    opacity:0.55;
+    z-index:0;
+  }
+
+  /* ----- trilha do mapa com ilhas + balões de resposta ----- */
+  .island-stop{
+    position:relative; z-index:1;
+    display:flex; align-items:flex-start; gap:16px;
+    width:min(700px,96%);
+    margin:0 auto 40px;
+  }
+  .island-stop:not(:last-child)::after{
+    content:"⚓";
+    position:absolute;
+    left:50%; bottom:-32px; transform:translateX(-50%);
+    font-size:1.15rem;
+    background:var(--parchment-soft);
+    border:2px solid var(--gold);
+    border-radius:50%;
+    width:34px; height:34px;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 3px 8px var(--shadow);
+    z-index:2;
+  }
+  .stop-right{ flex-direction:row-reverse; }
+  @media (max-width:640px){
+    .island-stop{ flex-direction:column !important; align-items:center; text-align:center; }
+  }
+
+  .island-marker{
+    position:relative; flex-shrink:0; width:150px; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center;
+    transition: transform .25s ease;
+    background:none; border:none; padding:0; font:inherit;
+  }
+  .island-marker:hover{ transform: scale(1.05) rotate(-1deg); }
+  .island-marker .island-icon{
+    width:100%; height:auto;
+    filter:drop-shadow(0 8px 14px rgba(0,0,0,0.4));
+  }
+  .island-marker .flag-badge{
+    position:absolute; top:-8px; left:-8px; z-index:2;
+    background:var(--coral); color:#FFF6E5;
+    width:30px; height:30px; border-radius:50%;
+    border:2px solid #fff3d6;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 4px 8px var(--shadow);
+  }
+  .island-marker .flag-badge .num{
+    font-family:'Fredoka', sans-serif; font-weight:700; font-size:0.95rem;
+  }
+  .island-marker .island-label{
+    margin-top:6px; font-family:'Fredoka', sans-serif; font-weight:600;
+    font-size:0.9rem; color:var(--ink); line-height:1.25;
+  }
+  .island-marker .tap-pulse{
+    margin-top:4px; font-size:0.74rem; font-weight:700; color:var(--coral);
+    animation: tapPulse 1.6s ease-in-out infinite;
+  }
+  .island-stop.active .island-marker .tap-pulse{ opacity:0; }
+  @keyframes tapPulse{ 0%,100%{opacity:.5;} 50%{opacity:1;} }
+
+  .answer-balloon{
+    position:relative; flex:1;
+    background:var(--parchment-soft);
+    border:3px solid var(--gold);
+    border-radius:20px;
+    padding:16px 20px;
+    box-shadow:0 8px 18px var(--shadow);
+    display:none;
+    opacity:0; transform:scale(0.92);
+    transition: opacity .3s ease, transform .3s ease;
+  }
+  .island-stop.active .answer-balloon{ display:block; opacity:1; transform:scale(1); }
+  .answer-balloon h2{
+    font-family:'Fredoka', sans-serif; font-weight:600;
+    font-size:1.1rem; color:var(--coral-dark); margin:0 0 10px;
+  }
+  .balloon-tail{ display:block; }
+  .stop-left .balloon-tail, .stop-right .balloon-tail{
+    position:absolute; top:30px; width:0; height:0;
+  }
+  .stop-left .balloon-tail{
+    left:-15px;
+    border-width:11px 15px 11px 0; border-style:solid;
+    border-color:transparent var(--gold) transparent transparent;
+  }
+  .stop-left .balloon-tail::after{
+    content:""; position:absolute; left:3px; top:-9px;
+    border-width:9px 12px 9px 0; border-style:solid;
+    border-color:transparent var(--parchment-soft) transparent transparent;
+  }
+  .stop-right .balloon-tail{
+    right:-15px;
+    border-width:11px 0 11px 15px; border-style:solid;
+    border-color:transparent transparent transparent var(--gold);
+  }
+  .stop-right .balloon-tail::after{
+    content:""; position:absolute; right:3px; top:-9px;
+    border-width:9px 0 9px 12px; border-style:solid;
+    border-color:transparent transparent transparent var(--parchment-soft);
+  }
+  @media (max-width:640px){ .balloon-tail{ display:none; } }
+
+  .field{ margin-bottom:8px; }
+  .answer-balloon .field .prompt{
+    font-size:0.94rem; font-weight:700; color:var(--ink-soft);
+    margin:0 0 6px; line-height:1.35;
+  }
+  .field.hidden-field{ display:none; opacity:0; transform:translateY(6px); transition: opacity .5s ease, transform .5s ease; }
+  .field.hidden-field.shown{ display:block; opacity:1; transform:translateY(0); }
+
+  textarea{
+    width:100%; min-height:56px; resize:vertical;
+    border:none; background:rgba(255,255,255,0.88);
+    border-radius:10px; padding:8px 10px;
+    font-family:'Nunito', sans-serif; font-size:0.98rem; font-weight:600;
+    color:var(--ink); outline:none;
+  }
+  textarea::placeholder{ font-weight:600; color:#a8977a; }
+
+  /* área de desenho (ilha 3), dentro do balão */
+  .draw-section{ margin:14px auto 0; text-align:center; }
+  .draw-section .prompt{
+    font-size:0.98rem; font-weight:700; color:var(--ink-soft);
+    margin:0 0 8px; line-height:1.4;
+  }
+  .draw-section.hidden-field{ display:none; opacity:0; transition:opacity .5s ease; }
+  .draw-section.hidden-field.shown{ display:block; opacity:1; }
+  canvas{
+    width:100%; aspect-ratio:4/3; background:#fff;
+    border:2px solid var(--parchment-edge); border-radius:14px;
+    touch-action:none; cursor:crosshair;
+  }
+  .draw-tools{ display:flex; align-items:center; justify-content:center; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  .color-dot{ width:26px;height:26px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 1.5px var(--ink-soft); cursor:pointer; padding:0; }
+  .color-dot.active{ box-shadow:0 0 0 2.5px var(--coral); }
+  .tool-btn{
+    background:var(--parchment-edge); border:none; border-radius:20px;
+    padding:7px 15px; font-family:'Nunito',sans-serif; font-weight:700;
+    font-size:0.85rem; color:var(--ink); cursor:pointer;
+  }
+
+  .chest-wrap{
+    display:grid; grid-template-columns:1fr auto 1fr;
+    align-items:center; gap:20px;
+    margin:6px auto 46px; position:relative; z-index:1;
+    max-width:760px; padding:0 16px;
+  }
+  .chest-img{ grid-column:2; width:180px; height:auto; justify-self:center; filter:grayscale(0.75) opacity(0.7); transition:filter .4s, transform .4s; }
+  .chest-msg{ grid-column:3; margin:0; text-align:center; font-weight:700; color:var(--ink-soft); opacity:0.7; font-size:0.98rem; }
+  .chest-wrap.unlocked .chest-img{ filter:none; transform:scale(1.1) rotate(-3deg); animation:pop .6s ease; }
+  .chest-wrap.unlocked .chest-msg{ opacity:1; color:var(--coral-dark); font-family:'Fredoka', sans-serif; font-size:1.2rem; }
+  @media (max-width:640px){
+    .chest-wrap{ grid-template-columns:1fr; text-align:center; gap:10px; }
+    .chest-img{ grid-column:1; width:150px; }
+    .chest-msg{ grid-column:1; }
+  }
+  @keyframes pop{ 0%{transform:scale(0.9);} 60%{transform:scale(1.28) rotate(-6deg);} 100%{transform:scale(1.14) rotate(-3deg);} }
+
+  .binocular-section{
+    position:relative; border-radius:24px; padding:26px 20px 34px;
+    box-shadow:0 8px 20px var(--shadow); overflow:hidden; isolation:isolate;
+  }
+  .sea-bg{
+    position:absolute; inset:-4%;
+    background-image:url('https://livia-430118842660-us-east-1-an.s3.us-east-1.amazonaws.com/ondas.jpg');
+    background-size:cover; background-position:center;
+    z-index:-3;
+    animation: sway 9s ease-in-out infinite alternate;
+  }
+  @keyframes sway{
+    0%{ transform: scale(1.06) translateX(-1.5%) translateY(-0.5%); }
+    100%{ transform: scale(1.06) translateX(1.5%) translateY(0.8%); }
+  }
+  .wave-layer{
+    position:absolute; left:-10%; right:-10%; height:90px;
+    background-repeat:repeat-x; background-size:220px 90px;
+    z-index:-2; pointer-events:none;
+  }
+  .wave-back{
+    bottom:-6px; opacity:0.4;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='90' viewBox='0 0 220 90'><path d='M0 45 C 40 10, 70 80, 110 45 S 180 10, 220 45 L220 90 L0 90 Z' fill='%23EAF6FA' fill-opacity='0.55'/></svg>");
+    animation: waveDrift 14s linear infinite, waveBob 5s ease-in-out infinite alternate;
+  }
+  .wave-front{
+    bottom:-20px; opacity:0.55;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='90' viewBox='0 0 220 90'><path d='M0 55 C 35 25, 75 85, 110 55 S 185 25, 220 55 L220 90 L0 90 Z' fill='white' fill-opacity='0.6'/></svg>");
+    animation: waveDriftReverse 10s linear infinite, waveBob 4s ease-in-out infinite alternate-reverse;
+  }
+  @keyframes waveDrift{ from{ background-position-x:0; } to{ background-position-x:220px; } }
+  @keyframes waveDriftReverse{ from{ background-position-x:220px; } to{ background-position-x:0; } }
+  @keyframes waveBob{ from{ transform: translateY(0); } to{ transform: translateY(6px); } }
+  .binocular-section::before{
+    content:""; position:absolute; inset:0;
+    background:linear-gradient(180deg, rgba(14,74,96,0.45), rgba(14,74,96,0.68));
+    z-index:-1;
+  }
+  .binocular-section h2{
+    font-family:'Fredoka', sans-serif; font-weight:600; color:#FCE9BB;
+    text-align:center; font-size:1.45rem; margin:0 0 6px;
+    text-shadow:0 3px 6px rgba(0,0,0,0.35);
+  }
+  .binocular-section > p{
+    text-align:center; color:#F3FAFC; max-width:540px; margin:0 auto 26px;
+    font-weight:700; line-height:1.45; text-shadow:0 1px 3px rgba(0,0,0,0.35);
+  }
+
+  #binocularsDrag{
+    position:absolute; left:16px; top:118px; width:64px; height:auto;
+    z-index:30; cursor:grab; touch-action:none; user-select:none;
+    -webkit-user-drag:none;
+    filter:drop-shadow(0 4px 8px rgba(0,0,0,0.45));
+  }
+  #binocularsDrag.dragging{ cursor:grabbing; filter:drop-shadow(0 8px 14px rgba(0,0,0,0.55)) brightness(1.06); }
+
+  .cards-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(210px,1fr)); gap:16px; position:relative; }
+  .flip-card{ position:relative; perspective:1000px; min-height:172px; cursor:pointer; }
+  .flip-inner{
+    position:relative; width:100%; height:100%; min-height:172px;
+    transition: transform 0.6s; transform-style: preserve-3d;
+  }
+  .flip-card.flipped .flip-inner{ transform: rotateY(180deg); }
+  .flip-front, .flip-back{
+    position:absolute; inset:0; backface-visibility:hidden;
+    border-radius:14px; padding:16px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;
+    box-shadow:0 6px 14px rgba(0,0,0,0.3);
+  }
+  .flip-front{ background:rgba(247,235,203,0.95); border:2px solid var(--gold); }
+  .flip-front .wave-icon{ height:42px; width:auto; max-width:80%; object-fit:contain; margin-bottom:8px; }
+  .flip-front span{ font-weight:700; font-size:0.95rem; color:var(--ink-soft); }
+  .flip-front .tap-hint{ margin-top:8px; font-size:0.78rem; font-weight:700; color:var(--coral); }
+  .flip-back{ background:linear-gradient(160deg, var(--gold-light), var(--gold)); border:2px solid #fff3d6; transform: rotateY(180deg); }
+  .flip-back .icon{ font-size:1.5rem; margin-bottom:6px; }
+  .flip-back p{ margin:0; font-size:0.92rem; font-weight:700; color:var(--ink); line-height:1.35; }
+
+  .lock-overlay{
+    position:absolute; inset:0; z-index:5; border-radius:14px;
+    background:rgba(14,74,96,0.82);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+    text-align:center; padding:10px;
+    color:#EAF6FA;
+  }
+  .flip-card:not(.locked) .lock-overlay{ display:none; }
+  .lock-overlay .lock-icon{ font-size:1.6rem; }
+  .lock-overlay span{ font-size:0.8rem; font-weight:700; }
+  .flip-card.just-unlocked .lock-overlay{ animation: unlockFade .5s ease forwards; }
+  @keyframes unlockFade{ from{ opacity:1; } to{ opacity:0; } }
+  .flip-card.locked.drag-target .lock-overlay{
+    background:rgba(217,164,65,0.85);
+    box-shadow: inset 0 0 0 3px #FFF3D6;
+  }
+
+  .add-difficulty-wrap{ margin-top:20px; text-align:center; position:relative; z-index:2; }
+  .add-btn{ background:var(--gold); }
+  .add-form{ display:none; max-width:420px; margin:14px auto 0; background:rgba(252,246,230,0.96); border-radius:14px; padding:14px; text-align:left; }
+  .add-form.shown{ display:block; }
+  .add-form input{
+    width:100%; padding:9px 11px; border-radius:9px; border:2px solid var(--parchment-edge);
+    font-family:'Nunito',sans-serif; font-weight:600; font-size:0.92rem; margin-bottom:9px; outline:none;
+  }
+  .add-form-actions{ display:flex; gap:8px; justify-content:flex-end; }
+  .tool-btn.cancel{ background:#ddd; }
+
+  .actions{ text-align:center; margin-top:36px; }
+  .btn-print{
+    background:var(--coral); color:#FFF6E5; border:none;
+    font-family:'Fredoka', sans-serif; font-weight:600; font-size:1rem;
+    padding:12px 26px; border-radius:30px; cursor:pointer;
+    box-shadow:0 6px 14px var(--shadow); transition: transform 0.15s;
+  }
+  .btn-print:hover{ transform: translateY(-2px); }
+  footer.note{ text-align:center; margin-top:22px; font-size:0.8rem; color:rgba(255,255,255,0.75); }
+
+  .music-panel{
+    position:fixed; right:16px; bottom:16px; z-index:50;
+    display:flex; align-items:center; gap:10px;
+    background:rgba(59,42,26,0.88);
+    padding:8px 14px 8px 8px;
+    border-radius:30px;
+    box-shadow:0 6px 14px var(--shadow);
+  }
+  .music-btn{
+    width:44px;height:44px;border-radius:50%; flex-shrink:0;
+    background:var(--coral); color:#fff; border:none; font-size:1.15rem;
+    box-shadow:0 4px 10px rgba(0,0,0,0.3); cursor:pointer;
+  }
+  .music-btn.playing{ background:var(--sea-mid); }
+  .music-panel input[type="range"]{
+    width:90px; accent-color:var(--gold);
+    cursor:pointer;
+  }
+
+  @media print{
+    .bg-scene, .btn-print, footer.note, .sea-bg, .wave-layer, .binocular-section::before, #binocularsDrag, .music-panel, .lock-overlay, .add-difficulty-wrap{ display:none; }
+    body{ background:#fff; }
+    .binocular-section{ background:#fff; box-shadow:none; }
+    .binocular-section h2, .binocular-section > p{ color:#000; text-shadow:none; }
+    .flip-inner{ transform:none !important; position:static; display:block; }
+    .flip-front, .flip-back{ position:static; box-shadow:none; transform:none !important; margin-bottom:8px; background:#fff; }
+    .flip-card{ break-inside: avoid; margin-bottom:10px; }
+    .field.hidden-field, .draw-section.hidden-field{ display:block !important; opacity:1 !important; transform:none !important; }
+    .answer-balloon{ display:block !important; opacity:1 !important; transform:none !important; box-shadow:none; }
+    .island-marker .tap-pulse{ display:none; }
+    .island-stop{ break-inside: avoid; }
+    .balloon-tail{ display:none; }
+  }
+</style>
+</head>
+<body>
+<div class="bg-scene"></div>
+<div class="wrap">
+
+  <header>
+    <img class="logo" src="https://livia-430118842660-us-east-1-an.s3.us-east-1.amazonaws.com/Logo.png" alt="Logo">
+    <h1><img class="title-icon" src="https://livia-430118842660-us-east-1-an.s3.us-east-1.amazonaws.com/bussola.png" alt="bússola"> Construindo o Mapa da Minha Terapia</h1>
+    <p class="subtitle">Sua jornada, seu tesouro</p>
+  </header>
+
+  <div class="intro">
+    <img class="pirata" src="https://livia-430118842660-us-east-1-an.s3.us-east-1.amazonaws.com/Pirata.png" alt="Personagem pirata">
+    <p><strong>Ahoy, pequeno(a) navegador(a)!</strong> Todo grande tesouro começa com um bom mapa. Hoje você vai desenhar o seu, seguindo o caminho até as três ilhas.</p>
+  </div>
+
+  <section class="map">
+
+    <div class="island-stop stop-left">
+      <button type="button" class="island-marker" data-island-marker="1" aria-label="Abrir Ilha do Primeiro Passo">
+        <span class="flag-badge"><span class="num">1</span></span>
+        <img class="island-icon" src="https://livia-430118842660-us-east-1-an.s3.us-east-1.amazonaws.com/ilha.png" alt="Ilha 1">
+        <span class="island-label">ILHA DO PRIMEIRO PASSO</span>
+        <span class="tap-pulse">👆 toque na ilha</span>
+      </button>
+      <div class="answer-balloon">
+        <span class="balloon-tail"></span>
+        <h2>Meu Primeiro Passo</h2>
+        <div class="field">
+          <p class="prompt">O que você gostaria que fosse diferente na sua vida?</p>
+          <textarea class="q1" data-island="1" placeholder="Escreva aqui..."></textarea>
+        </div>
+        <div class="field hidden-field" data-reveal-of="1">
+          <p class="prompt">Como você acha que pode fazer isso?</p>
+          <textarea placeholder="Escreva aqui..."></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="island-stop stop-right">
+      <button type="button" class="island-marker" data-island-marker="2" aria-label="Abrir Ilha da Próxima Conquista">
+        <span class="flag-badge"><span class="num">2</span></span>
+        <img class="island-icon" src="https://livia-430118842660-us-east-1-an.s3.us-east-1.amazonaws.com/ilha.png" alt="Ilha 2">
+        <span class="island-label">ILHA DA PRÓXIMA CONQUISTA</span>
+        <span class="tap-pulse">👆 toque na ilha</span>
+      </button>
+      <div class="answer-balloon">
+        <span class="balloon-tail"></span>
+        <h2>Minha Próxima Conquista</h2>
+        <div class="field">
+          <p class="prompt">Por onde você começaria para chegar mais perto da vida que você gostaria de ter?</p>
+          <textarea class="q1" data-island="2" placeholder="Escreva aqui..."></textarea>
+        </div>
+        <div class="field hidden-field" data-reveal-of="2">
+          <p class="prompt">Como você pode colocar isso em prática no dia a dia?</p>
+          <textarea placeholder="Escreva aqui..."></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="island-stop stop-left">
+      <button type="button" class="island-marker" data-island-marker="3" aria-label="Abrir Ilha do Grande Destino">
+        <span class="flag-badge"><span class="num">3</span></span>
+        <img class="island-icon" src="https://livia-430118842660-us-east-1-an.s3.us-east-1.amazonaws.com/ilha.png" alt="Ilha 3">
+        <span class="island-label">ILHA DO GRANDE DESTINO</span>
+        <span class="tap-pulse">👆 toque na ilha</span>
+      </button>
+      <div class="answer-balloon">
+        <span class="balloon-tail"></span>
+        <h2>Meu Grande Destino</h2>
+        <div class="field">
+          <p class="prompt">Como você vai saber que melhorou?</p>
+          <textarea class="q1" data-island="3" placeholder="Escreva aqui..."></textarea>
+        </div>
+        <div class="draw-section field hidden-field" data-reveal-of="3">
+          <p class="prompt">Desenhe como você quer que a sua vida seja depois que a terapia acabar. O que mudou no seu dia a dia?</p>
+          <canvas id="drawCanvas" width="600" height="450"></canvas>
+          <div class="draw-tools">
+            <button class="color-dot active" style="background:#3B2A1A" data-color="#3B2A1A"></button>
+            <button class="color-dot" style="background:#C1502E" data-color="#C1502E"></button>
+            <button class="color-dot" style="background:#1C7293" data-color="#1C7293"></button>
+            <button class="color-dot" style="background:#3E8E5A" data-color="#3E8E5A"></button>
+            <button class="color-dot" style="background:#D9A441" data-color="#D9A441"></button>
+            <button class="tool-btn" id="clearCanvas">🧹 Limpar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chest-wrap" id="chestWrap">
+      <img id="chestIcon" class="chest-img" src="https://livia-430118842660-us-east-1-an.s3.us-east-1.amazonaws.com/ba%C3%BA.png" alt="Baú do tesouro">
+      <p class="chest-msg" id="chestMsg">Complete os passos das três ilhas para destravar o baú do tesouro...</p>
+    </div>
+  </section>
+
+  <section class="binocular-section">
+    <div class="sea-bg"></div>
+    <div class="wave-layer wave-back"></div>
+    <div class="wave-layer wave-front"></div>
+    <img id="binocularsDrag" src="https://livia-430118842660-us-east-1-an.s3.us-east-1.amazonaws.com/bin%C3%B3culo.png" alt="Binóculo">
+    <h2>🔭 Binóculo das Dificuldades</h2>
+    <p>Toda jornada tem desafios no caminho. Arraste o binóculo até uma onda para revelar o desafio, depois toque na carta para descobrir a dica!</p>
+
+    <div class="cards-grid">
+      <div class="flip-card locked">
+        <div class="flip-inner">
+          <div class="flip-front">
+            <img class="wave-icon" src="https://livia-430118842660-us-east-1-an.s3.us-east-1.amazonaws.com/ondinhas.png" alt="ondinhas">
+            <span>"Às vezes posso não querer falar sobre algo."</span>
+            <div class="tap-hint">toque para ver</div>
+          </div>
+          <div class="flip-back">
+            <div class="icon">🧭</div>
+            <p>Na terapia, você pode construir confiança aos poucos e conversar no seu tempo.</p>
+          </div>
+        </div>
+        <div class="lock-overlay"><div class="lock-icon">🔒</div><span>Arraste o binóculo até aqui</span></div>
+      </div>
+
+      <div class="flip-card locked">
+        <div class="flip-inner">
+          <div class="flip-front">
+            <img class="wave-icon" src="https://livia-430118842660-us-east-1-an.s3.us-east-1.amazonaws.com/ondinhas.png" alt="ondinhas">
+            <span>"Às vezes posso sentir vergonha de contar algo."</span>
+            <div class="tap-hint">toque para ver</div>
+          </div>
+          <div class="flip-back">
+            <div class="icon">🛟</div>
+            <p>Aqui é um lugar seguro, sem julgamentos, dá para ir devagar, no seu ritmo.</p>
+          </div>
+        </div>
+        <div class="lock-overlay"><div class="lock-icon">🔒</div><span>Arraste o binóculo até aqui</span></div>
+      </div>
+
+      <div class="flip-card locked">
+        <div class="flip-inner">
+          <div class="flip-front">
+            <img class="wave-icon" src="https://livia-430118842660-us-east-1-an.s3.us-east-1.amazonaws.com/ondinhas.png" alt="ondinhas">
+            <span>"Às vezes posso achar que não consigo mudar."</span>
+            <div class="tap-hint">toque para ver</div>
+          </div>
+          <div class="flip-back">
+            <div class="icon">⚓</div>
+            <p>Na terapia, aprendemos novas estratégias e percebemos pequenas conquistas pelo caminho.</p>
+          </div>
+        </div>
+        <div class="lock-overlay"><div class="lock-icon">🔒</div><span>Arraste o binóculo até aqui</span></div>
+      </div>
+
+      <div class="flip-card locked">
+        <div class="flip-inner">
+          <div class="flip-front">
+            <img class="wave-icon" src="https://livia-430118842660-us-east-1-an.s3.us-east-1.amazonaws.com/ondinhas.png" alt="ondinhas">
+            <span>"Às vezes posso não entender por que estou aqui."</span>
+            <div class="tap-hint">toque para ver</div>
+          </div>
+          <div class="flip-back">
+            <div class="icon">🗺️</div>
+            <p>Juntos, podemos descobrir o sentido dessa jornada, cada sessão é uma pista a mais.</p>
+          </div>
+        </div>
+        <div class="lock-overlay"><div class="lock-icon">🔒</div><span>Arraste o binóculo até aqui</span></div>
+      </div>
+    </div>
+
+    <div class="add-difficulty-wrap">
+      <button id="addDifficultyBtn" class="tool-btn add-btn">➕ Adicionar uma dificuldade</button>
+      <div id="addDifficultyForm" class="add-form">
+        <input id="newDifficultyText" type="text" placeholder="Qual pode ser a dificuldade?">
+        <input id="newDifficultyHelp" type="text" placeholder="Como a terapia pode ajudar com isso?">
+        <div class="add-form-actions">
+          <button id="cancelAddDifficulty" class="tool-btn cancel">Cancelar</button>
+          <button id="confirmAddDifficulty" class="tool-btn">Adicionar</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="actions">
+    <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar Mapa</button>
+  </div>
+
+  <footer class="note">Recurso terapêutico para uso em atendimento infantojuvenil · Estética Pirata</footer>
+</div>
+
+<video id="bgMusic" loop preload="auto" playsinline style="display:none;" src="https://livia-430118842660-us-east-1-an.s3.us-east-1.amazonaws.com/Piratas+do+Caribe+-+Musica+Tema+-+Jo%C3%A3o+Guergolet+(youtube).mp3.mpeg"></video>
+<div class="music-panel">
+  <button id="musicToggle" class="music-btn" title="Tocar/pausar música">🎵</button>
+  <input type="range" id="musicVolume" min="0" max="1" step="0.05" value="0.6" title="Volume da música" aria-label="Volume da música">
+</div>
+
+<script>
+  // ---- flip cards (respeita cartas travadas) ----
+  document.querySelectorAll('.flip-card').forEach(card=>{
+    card.addEventListener('click', ()=>{
+      if(card.classList.contains('locked')) return;
+      card.classList.toggle('flipped');
+    });
+  });
+
+  // ---- clique na ilha abre/fecha o balão de respostas ----
+  document.querySelectorAll('.island-marker').forEach(marker=>{
+    marker.addEventListener('click', ()=>{
+      marker.closest('.island-stop').classList.toggle('active');
+    });
+  });
+
+  // ---- revelação progressiva por ilha ----
+  document.querySelectorAll('textarea.q1').forEach(ta=>{
+    const islandId = ta.dataset.island;
+    const target = document.querySelector('[data-reveal-of="'+islandId+'"]');
+    ta.addEventListener('input', ()=>{
+      if(ta.value.trim().length > 0){ target.classList.add('shown'); }
+      else{ target.classList.remove('shown'); }
+      checkChest();
+    });
+  });
+
+  // ---- desenho livre (ilha 3) ----
+  let hasDrawn = false;
+  const canvas = document.getElementById('drawCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.strokeStyle = '#3B2A1A';
+  let drawing = false;
+
+  function getPos(e){
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x:(clientX-rect.left)*scaleX, y:(clientY-rect.top)*scaleY };
+  }
+  function startDraw(e){ drawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); e.preventDefault(); }
+  function moveDraw(e){ if(!drawing) return; const p = getPos(e); ctx.lineTo(p.x,p.y); ctx.stroke(); hasDrawn = true; checkChest(); e.preventDefault(); }
+  function endDraw(){ drawing = false; }
+  canvas.addEventListener('mousedown', startDraw);
+  canvas.addEventListener('mousemove', moveDraw);
+  window.addEventListener('mouseup', endDraw);
+  canvas.addEventListener('touchstart', startDraw, {passive:false});
+  canvas.addEventListener('touchmove', moveDraw, {passive:false});
+  canvas.addEventListener('touchend', endDraw);
+  document.querySelectorAll('.color-dot').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.color-dot').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      ctx.strokeStyle = btn.dataset.color;
+    });
+  });
+  document.getElementById('clearCanvas').addEventListener('click', ()=>{
+    ctx.clearRect(0,0,canvas.width,canvas.height); hasDrawn = false; checkChest();
+  });
+
+  // ---- baú do tesouro ----
+  const chestWrap = document.getElementById('chestWrap');
+  const chestMsg = document.getElementById('chestMsg');
+  function checkChest(){
+    const q1s = document.querySelectorAll('textarea.q1');
+    const allQ1Filled = Array.from(q1s).every(t => t.value.trim().length > 0);
+    const revealed = document.querySelectorAll('.field.hidden-field.shown textarea');
+    const allRevealedFilled = Array.from(revealed).every(t => t.value.trim().length > 0);
+    if(allQ1Filled && allRevealedFilled && hasDrawn){
+      chestWrap.classList.add('unlocked');
+      chestMsg.textContent = 'Você traçou seu mapa! Agora é hora de navegar rumo ao seu destino. ⛵✨';
+    } else {
+      chestWrap.classList.remove('unlocked');
+      chestMsg.textContent = 'Complete os passos das três ilhas para destravar o baú do tesouro...';
+    }
+  }
+  document.querySelectorAll('.field.hidden-field textarea').forEach(t=> t.addEventListener('input', checkChest));
+
+  // ---- arrastar o binóculo até uma dificuldade ----
+  const binoc = document.getElementById('binocularsDrag');
+  const binocSection = binoc.parentElement;
+  let dragOffsetX = 0, dragOffsetY = 0, homeLeft = 16, homeTop = 118, dragging2 = false;
+
+  function goHome(){
+    binoc.style.transition = 'left .4s ease, top .4s ease';
+    binoc.style.left = homeLeft + 'px';
+    binoc.style.top = homeTop + 'px';
+  }
+
+  function rectsOverlap(a,b){
+    return !(b.left > a.right || b.right < a.left || b.top > a.bottom || b.bottom < a.top);
+  }
+  function clearDragTargets(){
+    document.querySelectorAll('.flip-card.drag-target').forEach(c=> c.classList.remove('drag-target'));
+  }
+  function unlockOverlappingCards(){
+    const binocRect = binoc.getBoundingClientRect();
+    let unlockedAny = false;
+    document.querySelectorAll('.flip-card.locked').forEach(card=>{
+      const cardRect = card.getBoundingClientRect();
+      if(rectsOverlap(binocRect, cardRect)){
+        card.classList.remove('locked');
+        card.classList.add('just-unlocked');
+        setTimeout(()=> card.classList.remove('just-unlocked'), 700);
+        unlockedAny = true;
+      }
+    });
+    return unlockedAny;
+  }
+
+  binoc.addEventListener('pointerdown', (e)=>{
+    dragging2 = true;
+    binoc.setPointerCapture(e.pointerId);
+    binoc.classList.add('dragging');
+    binoc.style.transition = 'none';
+    const rect = binoc.getBoundingClientRect();
+    dragOffsetX = e.clientX - rect.left;
+    dragOffsetY = e.clientY - rect.top;
+  });
+  binoc.addEventListener('pointermove', (e)=>{
+    if(!dragging2) return;
+    const parentRect = binocSection.getBoundingClientRect();
+    binoc.style.left = (e.clientX - parentRect.left - dragOffsetX) + 'px';
+    binoc.style.top = (e.clientY - parentRect.top - dragOffsetY) + 'px';
+
+    // desbloqueia automaticamente assim que o binóculo tocar a carta (sem precisar soltar)
+    const binocRect = binoc.getBoundingClientRect();
+    let touched = false;
+    document.querySelectorAll('.flip-card.locked').forEach(card=>{
+      const cardRect = card.getBoundingClientRect();
+      if(rectsOverlap(binocRect, cardRect)){
+        card.classList.add('drag-target');
+        touched = true;
+      } else {
+        card.classList.remove('drag-target');
+      }
+    });
+    if(touched){ unlockOverlappingCards(); clearDragTargets(); }
+  });
+  binoc.addEventListener('pointerup', ()=>{
+    if(!dragging2) return;
+    dragging2 = false;
+    binoc.classList.remove('dragging');
+    unlockOverlappingCards();
+    clearDragTargets();
+    goHome();
+  });
+
+  // ---- adicionar dificuldade própria ----
+  const addBtn = document.getElementById('addDifficultyBtn');
+  const addForm = document.getElementById('addDifficultyForm');
+  const grid = document.querySelector('.cards-grid');
+
+  addBtn.addEventListener('click', ()=>{ addForm.classList.add('shown'); addBtn.style.display='none'; });
+  document.getElementById('cancelAddDifficulty').addEventListener('click', ()=>{
+    addForm.classList.remove('shown'); addBtn.style.display='inline-block';
+    document.getElementById('newDifficultyText').value='';
+    document.getElementById('newDifficultyHelp').value='';
+  });
+  document.getElementById('confirmAddDifficulty').addEventListener('click', ()=>{
+    const text = document.getElementById('newDifficultyText').value.trim();
+    const help = document.getElementById('newDifficultyHelp').value.trim();
+    if(!text) return;
+    const card = document.createElement('div');
+    card.className = 'flip-card';
+    card.innerHTML = '<div class="flip-inner">'
+      + '<div class="flip-front"><img class="wave-icon" src="https://livia-430118842660-us-east-1-an.s3.us-east-1.amazonaws.com/ondinhas.png" alt="ondinhas"><span></span><div class="tap-hint">toque para ver</div></div>'
+      + '<div class="flip-back"><div class="icon">💡</div><p></p></div>'
+      + '</div>';
+    card.querySelector('.flip-front span').textContent = '"' + text + '"';
+    card.querySelector('.flip-back p').textContent = help || 'Podemos conversar sobre isso juntos na terapia.';
+    card.addEventListener('click', ()=> card.classList.toggle('flipped'));
+    grid.appendChild(card);
+    addForm.classList.remove('shown'); addBtn.style.display='inline-block';
+    document.getElementById('newDifficultyText').value='';
+    document.getElementById('newDifficultyHelp').value='';
+  });
+
+  // ---- música de fundo ----
+  const bgMusic = document.getElementById('bgMusic');
+  const musicBtn = document.getElementById('musicToggle');
+  const volumeSlider = document.getElementById('musicVolume');
+  bgMusic.volume = parseFloat(volumeSlider.value);
+  let musicOn = false;
+  function setPlayingUI(on){
+    musicOn = on;
+    musicBtn.textContent = on ? '🔇' : '🎵';
+    musicBtn.classList.toggle('playing', on);
+  }
+  musicBtn.addEventListener('click', ()=>{
+    if(musicOn){ bgMusic.pause(); setPlayingUI(false); }
+    else{ bgMusic.play().then(()=> setPlayingUI(true)).catch(()=>{}); }
+  });
+  volumeSlider.addEventListener('input', ()=>{
+    bgMusic.volume = parseFloat(volumeSlider.value);
+  });
+  window.addEventListener('load', ()=>{
+    bgMusic.play().then(()=> setPlayingUI(true)).catch(()=>{ setPlayingUI(false); });
+  });
+  // muitos navegadores bloqueiam o autoplay: assim que a criança tocar em qualquer
+  // parte da página, tentamos iniciar a música automaticamente (se ainda não estiver tocando)
+  function tryStartOnFirstInteraction(){
+    if(!musicOn){
+      bgMusic.play().then(()=> setPlayingUI(true)).catch(()=>{});
+    }
+    document.removeEventListener('pointerdown', tryStartOnFirstInteraction);
+    document.removeEventListener('keydown', tryStartOnFirstInteraction);
+  }
+  document.addEventListener('pointerdown', tryStartOnFirstInteraction, { once:true });
+  document.addEventListener('keydown', tryStartOnFirstInteraction, { once:true });
+</script>
+
+</body>
+</html>
